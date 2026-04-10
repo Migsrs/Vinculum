@@ -11,6 +11,7 @@ import {
   calcAverageRating,
 } from "../utils/storage";
 import { Button, Card, Input, Textarea } from "../components/ui";
+import { StateCitySelect } from "../components/StateCitySelect";
 import { User, ExternalLink, Image as ImageIcon, Star } from "lucide-react";
 import { ServiceCard } from "./ServicesPages";
 
@@ -118,12 +119,20 @@ export function ProfilePage({ session }) {
       role: session.role,
     };
 
+  // Parseia "Cidade - UF" de volta para os dois campos separados
+  const parsedCity = (() => {
+    const raw = current.city || "";
+    const match = raw.match(/^(.+)\s+-\s+([A-Z]{2})$/);
+    return match ? { city: match[1], stateUF: match[2] } : { city: raw, stateUF: "" };
+  })();
+
   const [form, setForm] = useState({
     name: current.name || "",
     email: current.email || "",
     role: current.role || "client",
     dob: current.dob || "",
-    city: current.city || "",
+    stateUF: parsedCity.stateUF,
+    city: parsedCity.city,
     bio: current.bio || "",
     avatar: current.avatar || "",
     specialties: current.specialties || "",
@@ -148,7 +157,10 @@ export function ProfilePage({ session }) {
 
   const onSave = (e) => {
     e.preventDefault();
-    upsertUser({ ...current, ...form });
+    const cityFormatted = form.city && form.stateUF
+      ? `${form.city} - ${form.stateUF}`
+      : form.city;
+    upsertUser({ ...current, ...form, city: cityFormatted });
     const s = readLS(LS_KEYS.session, null);
     if (s?.email === form.email) {
       localStorage.setItem(
@@ -235,12 +247,12 @@ export function ProfilePage({ session }) {
                 className="bg-gray-50"
               />
             </div>
-            <div>
-              <label className="text-sm text-gray-700">Cidade</label>
-              <Input
-                placeholder="Cidade - UF"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
+            <div className="md:col-span-3">
+              <StateCitySelect
+                stateUF={form.stateUF}
+                city={form.city}
+                onStateChange={(uf) => setForm({ ...form, stateUF: uf, city: "" })}
+                onCityChange={(c) => setForm({ ...form, city: c })}
               />
             </div>
           </div>

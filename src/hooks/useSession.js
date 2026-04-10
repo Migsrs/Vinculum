@@ -1,13 +1,19 @@
-// src/hooks/useSession.js
-import { useState } from "react";
-import { LS_KEYS, readLS, writeLS } from "../utils/storage";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase";
 
 export function useSession() {
-  const [session, setSession] = useState(() => readLS(LS_KEYS.session, null));
-  const save = (s) => {
-    setSession(s);
-    writeLS(LS_KEYS.session, s);
-  };
-  const logout = () => save(null);
-  return { session, save, logout };
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return { user, loading };
 }

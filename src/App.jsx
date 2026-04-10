@@ -28,7 +28,7 @@ import {
 } from "./pages/ProfilePages";
 
 import { LS_KEYS, readLS, writeLS } from "./utils/storage";
-import { seedServices } from "./utils/seeds";
+import { seedServices, seedUsers } from "./utils/seeds";
 
 // ---------------------- Hook de sessão ----------------------
 function useSession() {
@@ -59,47 +59,24 @@ function PrivateRoute({ children, role, session }) {
 function App() {
   const { session, save, logout } = useSession();
 
-  // Seeds iniciais de serviços e usuários demo
+  // Seeds iniciais de serviços e usuários demo (mescla novos seeds sem apagar dados existentes)
   useEffect(() => {
-    const svc = readLS(LS_KEYS.services, null);
-    if (!svc) writeLS(LS_KEYS.services, seedServices);
+    // Serviços: mescla seeds com IDs fixos que ainda não estão no localStorage
+    const storedSvc = readLS(LS_KEYS.services, null);
+    if (!storedSvc) {
+      writeLS(LS_KEYS.services, seedServices);
+    } else {
+      const existingIds = new Set(storedSvc.map((s) => s.id));
+      const missing = seedServices.filter((s) => !existingIds.has(s.id));
+      if (missing.length > 0) writeLS(LS_KEYS.services, [...storedSvc, ...missing]);
+    }
 
-    const users = readLS(LS_KEYS.users, []);
-    if (users.length === 0) {
-      writeLS(LS_KEYS.users, [
-        {
-          name: "Ana Souza",
-          email: "ana@nurse.com",
-          password: "123",
-          role: "provider",
-          city: "São Paulo - SP",
-          specialties: "Cuidados gerais, prevenção de quedas, medicação",
-          yearsExp: 8,
-          certifications: "COREN 123456, Primeiros Socorros",
-          bio: "Cuidadora com experiência em idosos frágeis e pós-operatório.",
-        },
-        {
-          name: "Carlos Ferreira",
-          email: "carlos@onco.com",
-          password: "123",
-          role: "provider",
-          city: "Campinas - SP",
-          specialties: "Demência leve, rotina de medicação",
-          yearsExp: 5,
-          certifications: "Enfermagem, Suporte Básico de Vida",
-          bio: "Focado em promover autonomia e segurança no dia a dia.",
-        },
-        {
-          name: "Paciente Demo",
-          email: "paciente@demo.com",
-          password: "123",
-          role: "client",
-          city: "Rio de Janeiro - RJ",
-          careNeeds: "Ajuda com mobilidade e medicação",
-          caregiverContact: "Maria (filha) - (21) 99999-0000",
-          bio: "Perfil de demonstração para testes da plataforma Vinculum.",
-        },
-      ]);
+    // Usuários: mescla seeds que ainda não estão no localStorage
+    const storedUsers = readLS(LS_KEYS.users, []);
+    const existingEmails = new Set(storedUsers.map((u) => u.email));
+    const missingUsers = seedUsers.filter((u) => !existingEmails.has(u.email));
+    if (missingUsers.length > 0) {
+      writeLS(LS_KEYS.users, [...storedUsers, ...missingUsers]);
     }
   }, []);
 

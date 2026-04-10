@@ -25,10 +25,20 @@ export function Services({ session }) {
     () => readLS(LS_KEYS.services, null) ?? seedServices
   );
 
-  // garante que os seeds sejam gravados se ainda não existir nada
+  // garante que todos os seeds estejam presentes (mescla novos seeds sem sobrescrever dados do usuário)
   useEffect(() => {
     const current = readLS(LS_KEYS.services, null);
-    if (!current) writeLS(LS_KEYS.services, services);
+    if (!current) {
+      writeLS(LS_KEYS.services, seedServices);
+      return;
+    }
+    const existingIds = new Set(current.map((s) => s.id));
+    const missing = seedServices.filter((s) => !existingIds.has(s.id));
+    if (missing.length > 0) {
+      const merged = [...current, ...missing];
+      writeLS(LS_KEYS.services, merged);
+      setServices(merged);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // roda uma vez
 

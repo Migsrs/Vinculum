@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Shield, BadgeCheck, MapPin, Phone } from "lucide-react";
+import { useSession } from "../hooks/useSession"; // ✅ IMPORT ADICIONADO
 
 // =================== PÁGINA PRINCIPAL ===================
 export default function HomePage() {
@@ -10,15 +11,25 @@ export default function HomePage() {
       <div className="mt-4 sm:mt-6">
         <PromoCarousel />
         <QuickTiles />
-        <AboutSection/>
+        <AboutSection />
       </div>
     </div>
   );
 }
 
-
-// =================== HERO (TOPO) ===================
+// =================== HERO ===================
 function HeroSection() {
+  const { user } = useSession(); // agora funciona
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (user) {
+      navigate("/services");
+    } else {
+      navigate("/login");
+    }
+  };
+
   return (
     <div className="relative mb-4 overflow-hidden rounded-3xl sm:mb-6">
       <img
@@ -36,25 +47,22 @@ function HeroSection() {
           </div>
 
           <p className="mt-2 text-xs leading-relaxed opacity-90 sm:text-sm">
-            Conectamos famílias a cuidadores geriátricos de confiança — no
-            domicílio ou por acompanhamento remoto.
+            Conectamos famílias a cuidadores geriátricos de confiança.
           </p>
 
-          <Link
-            to="/services"
+          <button
+            onClick={handleClick}
             className="mt-4 inline-flex rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-amber-600 sm:px-5 sm:text-sm"
           >
             Conheça nossos serviços
-          </Link>
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-
-
-// =================== CARROSSEL DE PROMOÇÕES ===================
+// =================== CARROSSEL ===================
 export function PromoCarousel() {
   const promotions = [
     {
@@ -85,7 +93,6 @@ export function PromoCarousel() {
 
   const [active, setActive] = useState(0);
 
-  // ---- auto avanço a cada 6s ----
   useEffect(() => {
     const timer = setInterval(() => {
       setActive((prev) => (prev + 1) % promotions.length);
@@ -93,7 +100,6 @@ export function PromoCarousel() {
     return () => clearInterval(timer);
   }, [promotions.length]);
 
-  // ---- suporte a swipe no mobile ----
   const touchStartX = useRef(null);
 
   const handleTouchStart = (e) => {
@@ -104,13 +110,10 @@ export function PromoCarousel() {
     if (touchStartX.current == null) return;
     const diffX = e.changedTouches[0].clientX - touchStartX.current;
 
-    // se arrastar mais de 40px pra um lado, troca o slide
     if (Math.abs(diffX) > 40) {
       if (diffX < 0) {
-        // arrastou para a esquerda -> próxima promoção
         setActive((prev) => (prev + 1) % promotions.length);
       } else {
-        // arrastou para a direita -> promoção anterior
         setActive((prev) =>
           prev === 0 ? promotions.length - 1 : prev - 1
         );
@@ -124,40 +127,16 @@ export function PromoCarousel() {
 
   return (
     <div className="mb-4 sm:mb-6">
-      <div
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-500 to-yellow-500 p-5 text-white shadow"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-500 to-yellow-500 p-5 text-white shadow">
         <div className="text-sm opacity-90">{current.label}</div>
-        <div className="mt-1 text-2xl font-bold leading-tight">
-          {current.title}
-        </div>
+        <div className="mt-1 text-2xl font-bold">{current.title}</div>
         <div className="mt-2 text-sm opacity-90">{current.description}</div>
-
-        {/* bolinhas de navegação */}
-        <div className="pointer-events-auto absolute bottom-3 right-4 flex gap-1.5">
-          {promotions.map((promo, index) => (
-            <button
-              key={promo.id}
-              type="button"
-              onClick={() => setActive(index)}
-              className={`h-2.5 w-2.5 rounded-full transition ${
-                index === active
-                  ? "bg-white"
-                  : "bg-white/50 hover:bg-white/80"
-              }`}
-              aria-label={`Ir para promoção ${index + 1}`}
-            />
-          ))}
-        </div>
       </div>
     </div>
   );
 }
 
-
-// =================== QUADRADINHOS RÁPIDOS ===================
+// =================== TILES ===================
 function QuickTiles() {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -176,11 +155,8 @@ function Tile({ icon: Icon, title, subtitle }) {
         <div className="rounded-2xl bg-amber-50 p-2 text-amber-600">
           <Icon className="h-6 w-6" />
         </div>
-        <div className="min-w-0">
-          {/* título ligeiramente menor e quebrando linha no mobile */}
-          <div className="break-words text-[13px] font-semibold leading-snug sm:text-sm">
-            {title}
-          </div>
+        <div>
+          <div className="text-sm font-semibold">{title}</div>
           <div className="text-xs text-gray-500">{subtitle}</div>
         </div>
       </div>
@@ -188,36 +164,13 @@ function Tile({ icon: Icon, title, subtitle }) {
   );
 }
 
-// =================== SOBRE NÓS ===================
+// =================== SOBRE ===================
 function AboutSection() {
   return (
     <section className="mt-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-gray-200 sm:p-6">
-      <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
-        Sobre o Vinculum
-      </h2>
-
-      <p className="mt-2 text-sm leading-relaxed text-gray-700">
-        O Vinculum nasceu da vivência pessoal dos integrantes do projeto com
-        familiares idosos que precisavam de apoio no dia a dia. Em diferentes
-        momentos, percebemos a dificuldade das famílias em encontrar
-        cuidadores de confiança, com informações claras sobre experiência,
-        disponibilidade e avaliações de outros familiares.
-      </p>
-
-      <p className="mt-2 text-sm leading-relaxed text-gray-700">
-        A nossa motivação é usar tecnologia para aproximar pessoas: de um lado,
-        famílias que precisam de cuidado gerontológico seguro e acolhedor; do
-        outro, profissionais qualificados que muitas vezes não têm visibilidade
-        ou uma forma simples de apresentar seus serviços.
-      </p>
-
-      <p className="mt-2 text-sm leading-relaxed text-gray-700">
-        O projeto começou como um MVP acadêmico, inspirado em plataformas como
-        o iFood, mas adaptado ao contexto da saúde. A ideia é oferecer uma
-        interface simples, avaliações transparentes e um fluxo de cadastro
-        acessível tanto para cuidadores quanto para familiares, servindo como
-        um primeiro passo para um sistema completo de gestão de cuidados para
-        idosos.
+      <h2 className="text-lg font-semibold">Sobre o Vinculum</h2>
+      <p className="mt-2 text-sm text-gray-700">
+        O Vinculum conecta famílias a cuidadores confiáveis usando tecnologia.
       </p>
     </section>
   );

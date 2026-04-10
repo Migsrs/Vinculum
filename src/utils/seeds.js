@@ -2,7 +2,7 @@
 
 export const seedServices = [
   {
-    id: crypto.randomUUID(),
+    id: "seed-svc-001",
     title: "Acompanhamento Geriátrico Domiciliar",
     description:
       "Auxílio na rotina do idoso: medicação, alimentação, mobilidade, prevenção de quedas e orientação à família.",
@@ -17,7 +17,7 @@ export const seedServices = [
       "https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=1200&auto=format&fit=crop",
   },
   {
-    id: crypto.randomUUID(),
+    id: "seed-svc-002",
     title: "Teleassistência Geriátrica",
     description:
       "Monitoramento remoto de sinais vitais, lembretes de medicação e orientação a cuidadores.",
@@ -30,6 +30,81 @@ export const seedServices = [
     rating: 4.7,
     cover:
       "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: "seed-svc-003",
+    title: "Fisioterapia Domiciliar para Idosos",
+    description:
+      "Sessões de fisioterapia no domicílio focadas em reabilitação motora, fortalecimento muscular e melhora do equilíbrio para reduzir risco de quedas.",
+    hourlyPrice: 130,
+    remote: false,
+    location: "Rio de Janeiro - RJ",
+    tags: ["Fisioterapia", "Reabilitação", "Mobilidade"],
+    ownerEmail: "patricia@fisio.com",
+    ownerName: "Patrícia Lima",
+    rating: 4.8,
+    cover:
+      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: "seed-svc-004",
+    title: "Cuidador de Idosos 24h",
+    description:
+      "Acompanhamento integral durante o dia ou pernoite, auxiliando em higiene pessoal, alimentação, mobilidade e companhia para idosos com dependência moderada ou severa.",
+    hourlyPrice: 95,
+    remote: false,
+    location: "Belo Horizonte - MG",
+    tags: ["Cuidador", "24h", "Dependência"],
+    ownerEmail: "marcos@cuidador.com",
+    ownerName: "Marcos Oliveira",
+    rating: 4.6,
+    cover:
+      "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: "seed-svc-005",
+    title: "Nutrição Clínica Geriátrica",
+    description:
+      "Avaliação nutricional e elaboração de plano alimentar individualizado para idosos, com foco em sarcopenia, osteoporose e doenças crônicas.",
+    hourlyPrice: 150,
+    remote: true,
+    location: "Remoto",
+    tags: ["Nutrição", "Idosos", "Dieta"],
+    ownerEmail: "julia@nutri.com",
+    ownerName: "Júlia Mendes",
+    rating: 5.0,
+    cover:
+      "https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: "seed-svc-006",
+    title: "Terapia Ocupacional Domiciliar",
+    description:
+      "Intervenção terapêutica para manutenção da independência do idoso nas atividades diárias, adaptação do ambiente e estimulação cognitiva.",
+    hourlyPrice: 120,
+    remote: false,
+    location: "Curitiba - PR",
+    tags: ["Terapia Ocupacional", "Cognição", "Independência"],
+    ownerEmail: "roberto@to.com",
+    ownerName: "Roberto Costa",
+    rating: 4.7,
+    cover:
+      "https://images.unsplash.com/photo-1582750433449-648ed127bb54?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: "seed-svc-007",
+    title: "Psicologia para Terceira Idade",
+    description:
+      "Atendimento psicológico online voltado a idosos, trabalhando ansiedade, depressão, luto, adaptação à aposentadoria e qualidade de vida.",
+    hourlyPrice: 100,
+    remote: true,
+    location: "Remoto",
+    tags: ["Psicologia", "Saúde Mental", "Online"],
+    ownerEmail: "fernanda@psico.com",
+    ownerName: "Fernanda Rocha",
+    rating: 4.9,
+    cover:
+      "https://images.unsplash.com/photo-1573497620053-ea5300f94f21?q=80&w=1200&auto=format&fit=crop",
   },
 ];
 
@@ -59,6 +134,71 @@ export const seedUsers = [
     specialties: "Teleassistência, mobilidade",
     yearsExp: "3",
     certifications: "Primeiros Socorros",
+  },
+  {
+    name: "Patrícia Lima",
+    email: "patricia@fisio.com",
+    password: "123",
+    role: "provider",
+    dob: "",
+    city: "Rio de Janeiro - RJ",
+    bio: "",
+    avatar: "",
+    specialties: "Reabilitação motora, equilíbrio",
+    yearsExp: "7",
+    certifications: "CREFITO 54321",
+  },
+  {
+    name: "Marcos Oliveira",
+    email: "marcos@cuidador.com",
+    password: "123",
+    role: "provider",
+    dob: "",
+    city: "Belo Horizonte - MG",
+    bio: "",
+    avatar: "",
+    specialties: "Cuidados 24h, higiene, mobilidade",
+    yearsExp: "4",
+    certifications: "Curso de Cuidador de Idosos",
+  },
+  {
+    name: "Júlia Mendes",
+    email: "julia@nutri.com",
+    password: "123",
+    role: "provider",
+    dob: "",
+    city: "",
+    bio: "",
+    avatar: "",
+    specialties: "Nutrição geriátrica, sarcopenia, osteoporose",
+    yearsExp: "6",
+    certifications: "CRN 98765",
+  },
+  {
+    name: "Roberto Costa",
+    email: "roberto@to.com",
+    password: "123",
+    role: "provider",
+    dob: "",
+    city: "Curitiba - PR",
+    bio: "",
+    avatar: "",
+    specialties: "Terapia ocupacional, estimulação cognitiva",
+    yearsExp: "5",
+    certifications: "CREFITO 11223",
+  },
+  {
+    name: "Fernanda Rocha",
+    email: "fernanda@psico.com",
+    password: "123",
+    role: "provider",
+    dob: "",
+    city: "",
+    bio: "",
+    avatar: "",
+    specialties: "Psicologia geriátrica, saúde mental",
+    yearsExp: "8",
+    certifications: "CRP 33445",
   },
   {
     name: "Paciente Demo",

@@ -3,8 +3,41 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LS_KEYS, readLS, writeLS } from "../utils/storage";
 import { Button, Card, Input, Textarea } from "../components/ui";
+import { StateCitySelect } from "../components/StateCitySelect";
 import { signInWithGoogle } from "../firebase";
 import { saveUserProfile } from "../services/firestoreUsers";
+
+// ---------- VALIDAÇÃO DE CPF (Módulo 11 — Receita Federal) ----------
+// Fonte: https://www.receita.fazenda.gov.br/aplicacoes/atcta/cpf/orientacoes.htm
+function validateCPF(cpf) {
+  const digits = cpf.replace(/\D/g, "");
+
+  if (digits.length !== 11) return false;
+
+  // Rejeita sequências iguais (ex.: 111.111.111-11)
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+
+  // Calcula e valida os dois dígitos verificadores
+  for (let d = 9; d <= 10; d++) {
+    let sum = 0;
+    for (let i = 0; i < d; i++) {
+      sum += Number(digits[i]) * (d + 1 - i);
+    }
+    const remainder = (sum * 10) % 11;
+    const verifier = remainder === 10 || remainder === 11 ? 0 : remainder;
+    if (verifier !== Number(digits[d])) return false;
+  }
+
+  return true;
+}
+
+function formatCPF(value) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  return digits
+    .replace(/^(\d{3})(\d)/, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
+}
 
 // ---------- LOGIN ----------
 export function Login({ onLogin }) {
@@ -173,9 +206,11 @@ export function Register() {
   const [form, setForm] = useState({
     name: "",
     email: "",
+    cpf: "",
     password: "",
     role: "client",
     dob: "",
+    stateUF: "",
     city: "",
     bio: "",
     avatar: "",
@@ -185,13 +220,28 @@ export function Register() {
     careNeeds: "",
     caregiverContact: "",
   });
+  const [cpfError, setCpfError] = useState("");
   const [error, setError] = useState("");
+
+  const handleCpfChange = (e) => {
+    const formatted = formatCPF(e.target.value);
+    setForm({ ...form, cpf: formatted });
+    if (cpfError) setCpfError("");
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validateCPF(form.cpf)) {
+      setCpfError("CPF inválido. Verifique os dígitos informados.");
+      return;
+    }
+
     const users = readLS(LS_KEYS.users, []);
     if (users.some((u) => u.email === form.email))
       return setError("Email já cadastrado.");
+    if (users.some((u) => u.cpf === form.cpf.replace(/\D/g, "")))
+      return setError("CPF já cadastrado.");
 
     // Gera um uid para este usuário (para usar como id no Firestore)
     const uid =
@@ -199,7 +249,12 @@ export function Register() {
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random()}`;
 
-    const newUser = { ...form, uid };
+    const newUser = {
+      ...form,
+      uid,
+      cpf: form.cpf.replace(/\D/g, ""),
+      city: form.city && form.stateUF ? `${form.city} - ${form.stateUF}` : form.city,
+    };
 
     // Salva no localStorage (comportamento antigo)
     writeLS(LS_KEYS.users, [...users, newUser]);
@@ -292,26 +347,36 @@ export function Register() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm text-gray-700">
-                Data de nascimento
-              </label>
-              <Input
-                type="date"
-                value={form.dob}
-                onChange={(e) => setForm({ ...form, dob: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-700">Cidade</label>
-              <Input
-                placeholder="Cidade - UF"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-            </div>
+          <div>
+            <label className="text-sm text-gray-700">CPF</label>
+            <Input
+              placeholder="000.000.000-00"
+              value={form.cpf}
+              onChange={handleCpfChange}
+              inputMode="numeric"
+              required
+            />
+            {cpfError && (
+              <p className="mt-1 text-sm text-red-600">{cpfError}</p>
+            )}
           </div>
+
+          <div>
+            <label className="text-sm text-gray-700">Data de nascimento</label>
+            <Input
+              type="date"
+              value={form.dob}
+              onChange={(e) => setForm({ ...form, dob: e.target.value })}
+            />
+          </div>
+
+          <StateCitySelect
+            stateUF={form.stateUF}
+            city={form.city}
+            onStateChange={(uf) => setForm({ ...form, stateUF: uf, city: "" })}
+            onCityChange={(c) => setForm({ ...form, city: c })}
+            required
+          />
 
           {form.role === "provider" ? (
             <div className="grid gap-4 md:grid-cols-3">
@@ -405,8 +470,10 @@ export function CompleteGoogleProfile({ onProfileSaved }) {
   const [form, setForm] = useState({
     name: pending?.name || "",
     email: pending?.email || "",
+    cpf: "",
     role: "client",
     dob: "",
+    stateUF: "",
     city: "",
     bio: "",
     avatar: pending?.avatar || "",
@@ -416,6 +483,13 @@ export function CompleteGoogleProfile({ onProfileSaved }) {
     careNeeds: "",
     caregiverContact: "",
   });
+  const [cpfError, setCpfError] = useState("");
+
+  const handleCpfChange = (e) => {
+    const formatted = formatCPF(e.target.value);
+    setForm({ ...form, cpf: formatted });
+    if (cpfError) setCpfError("");
+  };
 
   useEffect(() => {
     if (!pending) {
@@ -431,9 +505,18 @@ export function CompleteGoogleProfile({ onProfileSaved }) {
       return;
     }
 
+    if (!validateCPF(form.cpf)) {
+      setCpfError("CPF inválido. Verifique os dígitos informados.");
+      return;
+    }
+
     const users = readLS(LS_KEYS.users, []);
     if (users.some((u) => u.email === pending.email)) {
       setError("Este email já possui cadastro. Use a tela de login.");
+      return;
+    }
+    if (users.some((u) => u.cpf === form.cpf.replace(/\D/g, ""))) {
+      setError("CPF já cadastrado.");
       return;
     }
 
@@ -442,6 +525,8 @@ export function CompleteGoogleProfile({ onProfileSaved }) {
     const newUser = {
       ...form,
       uid,
+      cpf: form.cpf.replace(/\D/g, ""),
+      city: form.city && form.stateUF ? `${form.city} - ${form.stateUF}` : form.city,
       email: pending.email,
       name: form.name || pending.name || pending.email,
       avatar: pending.avatar,
@@ -517,6 +602,20 @@ export function CompleteGoogleProfile({ onProfileSaved }) {
           </div>
 
           <div>
+            <label className="text-sm text-gray-700">CPF</label>
+            <Input
+              placeholder="000.000.000-00"
+              value={form.cpf}
+              onChange={handleCpfChange}
+              inputMode="numeric"
+              required
+            />
+            {cpfError && (
+              <p className="mt-1 text-sm text-red-600">{cpfError}</p>
+            )}
+          </div>
+
+          <div>
             <label className="text-sm text-gray-700">Perfil</label>
             <div className="mt-2 flex gap-3">
               <label className="inline-flex items-center gap-2">
@@ -542,26 +641,22 @@ export function CompleteGoogleProfile({ onProfileSaved }) {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm text-gray-700">
-                Data de nascimento
-              </label>
-              <Input
-                type="date"
-                value={form.dob}
-                onChange={(e) => setForm({ ...form, dob: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-700">Cidade</label>
-              <Input
-                placeholder="Cidade - UF"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-            </div>
+          <div>
+            <label className="text-sm text-gray-700">Data de nascimento</label>
+            <Input
+              type="date"
+              value={form.dob}
+              onChange={(e) => setForm({ ...form, dob: e.target.value })}
+            />
           </div>
+
+          <StateCitySelect
+            stateUF={form.stateUF}
+            city={form.city}
+            onStateChange={(uf) => setForm({ ...form, stateUF: uf, city: "" })}
+            onCityChange={(c) => setForm({ ...form, city: c })}
+            required
+          />
 
           {form.role === "provider" ? (
             <div className="grid gap-4 md:grid-cols-3">

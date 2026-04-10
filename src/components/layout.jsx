@@ -1,5 +1,5 @@
 // src/components/layout.jsx
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Heart,
@@ -28,14 +28,14 @@ export function AppBar({ session, onLogout }) {
           </div>
         </div>
 
-        {/* Lado direito: menu do usuário / botão Entrar */}
+        {/* 🔥 REMOVIDO botão Entrar */}
         <UserMenuButton session={session} onLogout={onLogout} />
       </div>
     </div>
   );
 }
 
-// =================== MENU DO USUÁRIO (mini menu estilo Twitch) ===================
+// =================== MENU DO USUÁRIO ===================
 function UserMenuButton({ session, onLogout }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -44,14 +44,7 @@ function UserMenuButton({ session, onLogout }) {
   const close = () => setOpen(false);
 
   if (!session) {
-    return (
-      <Link
-        to="/login"
-        className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-      >
-        Entrar
-      </Link>
-    );
+    return null;
   }
 
   const initial =
@@ -158,11 +151,13 @@ export function BottomTabs({ session }) {
           icon={MessageCircle}
           active={is("/contacts")}
         />
+
+        {/* 🔥 sempre vai pra login se não estiver logado */}
         <TabLink
           to={session ? "/account" : "/login"}
-          label={session ? "Conta" : "Entrar"}
+          label="Conta"
           icon={User}
-          active={is("/account") || is("/login")}
+          active={is("/account")}
         />
       </div>
     </nav>
@@ -183,32 +178,27 @@ function TabLink({ to, label, icon: Icon, active }) {
   );
 }
 
-// =================== BOTÕES FLUTUANTES (HOME + VOLTAR) – DESKTOP ===================
+// =================== BOTÕES FLUTUANTES ===================
 function FloatingDesktopNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === "/";
 
   return (
-    // hidden em mobile; aparece só em md+
     <div className="pointer-events-none fixed left-4 top-1 z-50 hidden gap-3 md:flex md:left-6 md:top-2">
-      {/* Home */}
       <button
         type="button"
         onClick={() => navigate("/")}
         className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md shadow-black/5 ring-1 ring-black/5 transition hover:scale-[1.03]"
-        aria-label="Ir para a página inicial"
       >
         <Home className="h-5 w-5 text-amber-600" />
       </button>
 
-      {/* Voltar – só aparece se não estiver na home */}
       {!isHome && (
         <button
           type="button"
           onClick={() => navigate(-1)}
           className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md shadow-black/5 ring-1 ring-black/5 transition hover:scale-[1.03]"
-          aria-label="Voltar para a página anterior"
         >
           <ArrowLeft className="h-5 w-5 text-amber-600" />
         </button>
@@ -217,20 +207,15 @@ function FloatingDesktopNav() {
   );
 }
 
-
 // =================== LAYOUT PRINCIPAL ===================
 export function PageLayout({ session, onLogout, children }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 pb-16 md:pb-0">
       <AppBar session={session} onLogout={onLogout} />
-
-      {/* Botões flutuantes só em desktop/tablet, por cima do AppBar */}
       <FloatingDesktopNav />
-
       <main>{children}</main>
       <BottomTabs session={session} />
 
-      {/* Footer só no desktop */}
       <footer className="hidden border-t border-gray-200 bg-white md:block">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6 text-sm text-gray-600">
           <div className="flex items-center gap-2">
