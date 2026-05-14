@@ -12,8 +12,9 @@ import {
 } from "../utils/storage";
 import { Button, Card, Input, Textarea } from "../components/ui";
 import { sanitizeText } from "../utils/security";
+import { getContracts } from "../utils/storage";
 import { StateCitySelect } from "../components/StateCitySelect";
-import { User, ExternalLink, Image as ImageIcon, Star } from "lucide-react";
+import { User, ExternalLink, Image as ImageIcon, Star, MessageCircle } from "lucide-react";
 import { ServiceCard } from "./ServicesPages";
 
 // 🔥 Firestore (para avaliações)
@@ -33,6 +34,11 @@ export function Account({ session, onLogout }) {
   if (!session) return <Navigate to="/login" replace />;
   const u = getUserByEmail(session.email) || {};
   const age = calcAge(u.dob);
+
+  // Contratos onde o usuário é cliente ou prestador
+  const contracts = getContracts().filter(
+    (c) => c.clientEmail === session.email || c.providerEmail === session.email
+  );
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-28 pt-4 md:pb-8">
@@ -104,6 +110,62 @@ export function Account({ session, onLogout }) {
           </div>
         </div>
       </Card>
+
+      {/* ── Minhas Conversas ── */}
+      <div className="mt-6">
+        <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+          <MessageCircle className="h-5 w-5 text-amber-600" />
+          Minhas Conversas
+        </h3>
+
+        {contracts.length === 0 ? (
+          <Card>
+            <p className="text-sm text-gray-500">
+              Nenhuma conversa ainda. Contrate um serviço para iniciar um chat com o prestador.
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {contracts.map((c) => {
+              const isClient = c.clientEmail === session.email;
+              const otherName = isClient ? c.providerName : c.clientName;
+              const date = new Date(c.contractedAt).toLocaleDateString("pt-BR");
+              return (
+                <Link key={c.id} to={`/chat/${c.chatId}`}>
+                  <Card className={`flex items-center gap-4 transition cursor-pointer ${
+                    c.status === "closed"
+                      ? "opacity-60 hover:border-gray-300"
+                      : "hover:border-amber-300"
+                  }`}>
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold ${
+                      c.status === "closed"
+                        ? "bg-gray-100 text-gray-400"
+                        : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {otherName?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-semibold text-gray-900">{otherName}</span>
+                        {c.status === "closed" && (
+                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400">
+                            Encerrado
+                          </span>
+                        )}
+                      </div>
+                      <div className="truncate text-sm text-gray-500">{c.serviceTitle}</div>
+                      <div className="text-xs text-gray-400">Contratado em {date}</div>
+                    </div>
+                    <MessageCircle className={`h-5 w-5 shrink-0 ${
+                      c.status === "closed" ? "text-gray-400" : "text-amber-600"
+                    }`} />
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

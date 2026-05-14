@@ -217,13 +217,10 @@ export function PageLayout({ session, onLogout, children }) {
       <BottomTabs session={session} />
 
       <footer className="hidden border-t border-gray-200 bg-white md:block">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6 text-sm text-gray-600">
+        <div className="mx-auto flex max-w-5xl items-center justify-center px-4 py-6 text-sm text-gray-600">
           <div className="flex items-center gap-2">
             <Heart className="h-4 w-4 text-amber-600" />
             Vinculum © {new Date().getFullYear()}
-          </div>
-          <div>
-            Este é um MVP de demonstração. Não substitui orientação médica.
           </div>
         </div>
       </footer>

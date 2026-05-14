@@ -1,8 +1,9 @@
 // src/pages/PaymentPage.jsx
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, Button, Input } from "../components/ui";
 import { CreditCard, QrCode, CheckCircle, XCircle } from "lucide-react";
+import { addContract, getChatId } from "../utils/storage";
 
 // ── Algoritmo de Luhn ──────────────────────────────────────
 function luhn(raw) {
@@ -64,10 +65,80 @@ function randomPixKey() {
   );
 }
 
+// ── Cartões de teste ───────────────────────────────────────
+const TEST_CARDS = [
+  { brand: "visa",       number: "4111111111111111", label: "Visa aprovado" },
+  { brand: "visa",       number: "4000000000000002", label: "Visa recusado" },
+  { brand: "mastercard", number: "5555555555554444", label: "Mastercard aprovado" },
+  { brand: "mastercard", number: "5105105105105100", label: "Mastercard recusado" },
+];
+
+function TestCards({ onSelect }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-3 text-xs">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between font-medium text-gray-500 hover:text-gray-700"
+      >
+        <span>Cartões de teste</span>
+        <span>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-1">
+          {TEST_CARDS.map((c) => (
+            <button
+              key={c.number}
+              type="button"
+              onClick={() => onSelect(c.number)}
+              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition hover:opacity-80 ${
+                c.brand === "visa"
+                  ? "bg-blue-50 text-blue-700"
+                  : "bg-orange-50 text-orange-700"
+              }`}
+            >
+              <span className="font-semibold uppercase tracking-wider">
+                {c.brand}
+              </span>
+              <span className="font-mono">{c.number.replace(/(.{4})/g, "$1 ").trim()}</span>
+              <span className="text-gray-500">{c.label}</span>
+            </button>
+          ))}
+          <p className="mt-1 text-gray-400">
+            CVV: qualquer 3 dígitos · Validade: qualquer data futura
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════════════
-export default function PaymentPage() {
+export default function PaymentPage({ session }) {
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const service = state?.service ?? null;
   const [tab, setTab] = useState("pix");
+
+  function saveContract() {
+    if (!session?.email || !service?.ownerEmail) return;
+    addContract({
+      id: crypto.randomUUID(),
+      chatId: getChatId(
+        session.name || session.email,
+        service.ownerName || service.ownerEmail
+      ),
+      clientEmail: session.email,
+      clientName: session.name || session.email,
+      providerEmail: service.ownerEmail,
+      providerName: service.ownerName || service.ownerEmail,
+      serviceId: service.id,
+      serviceTitle: service.title,
+      contractedAt: new Date().toISOString(),
+    });
+  }
 
   // ── PIX ─────────────────────────────────────────────────
   const [pixKey] = useState(randomPixKey);
@@ -85,6 +156,7 @@ export default function PaymentPage() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
+          saveContract();
           setPixConfirmed(true);
           return 0;
         }
@@ -116,6 +188,7 @@ export default function PaymentPage() {
     e.preventDefault();
     const detectedBrand = detectBrand(card.number);
     const valid = detectedBrand && luhn(card.number);
+    if (valid) saveContract();
     setCardResult(valid ? "success" : "fail");
   };
 
@@ -265,6 +338,14 @@ export default function PaymentPage() {
               Nenhuma informação de pagamento é armazenada.
             </p>
 
+            {/* Cartões de teste */}
+            <TestCards onSelect={(num) => {
+              const formatted = formatCardNumber(num);
+              setCard((c) => ({ ...c, number: formatted }));
+              setBrand(detectBrand(formatted));
+              setCardResult(null);
+            }} />
+
             {/* Resultado */}
             {cardResult && (
               <div
@@ -283,9 +364,19 @@ export default function PaymentPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full">
-              Pagar
-            </Button>
+            {cardResult === "success" ? (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => navigate("/account")}
+              >
+                Ir para Minhas Conversas
+              </Button>
+            ) : (
+              <Button type="submit" className="w-full">
+                Pagar
+              </Button>
+            )}
           </form>
         </Card>
       )}
@@ -297,13 +388,13 @@ export default function PaymentPage() {
             <CheckCircle className="mx-auto mb-4 h-20 w-20 text-green-500" />
             <h3 className="text-2xl font-bold text-gray-900">Pagamento autorizado!</h3>
             <p className="mt-2 text-sm text-gray-500">
-              Seu pagamento via PIX foi confirmado com sucesso.
+              Seu pagamento via PIX foi confirmado. Você já pode falar com o prestador.
             </p>
             <Button
               className="mt-6 w-full"
-              onClick={() => navigate("/services")}
+              onClick={() => navigate("/account")}
             >
-              Voltar aos serviços
+              Ir para Minhas Conversas
             </Button>
           </div>
         </div>

@@ -27,6 +27,7 @@ import {
   PublicProfile,
 } from "./pages/ProfilePages";
 import PaymentPage from "./pages/PaymentPage";
+import ChatPage from "./pages/ChatPage";
 
 import { LS_KEYS, readLS, writeLS } from "./utils/storage";
 import { seedServices, seedUsers } from "./utils/seeds";
@@ -171,7 +172,17 @@ function App() {
             path="/payment"
             element={
               <PrivateRoute session={session}>
-                <PaymentPage />
+                <PaymentPage session={session} />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Chat */}
+          <Route
+            path="/chat/:chatId"
+            element={
+              <PrivateRoute session={session}>
+                <ChatPage session={session} />
               </PrivateRoute>
             }
           />

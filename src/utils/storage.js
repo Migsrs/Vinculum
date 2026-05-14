@@ -6,8 +6,34 @@ export const LS_KEYS = {
   services: "vinculum_services",
   contacts: "vinculum_contacts",
   googlePending: "vinculum_google_pending",
-  ratings: "vinculum_ratings",          // <- NOVO
+  ratings: "vinculum_ratings",
+  contracts: "vinculum_contracts",
 };
+
+// ── ID de chat derivado dos nomes (ordem alfabética) ──────
+export function getChatId(name1, name2) {
+  const s1 = slugify(name1) || "usuario";
+  const s2 = slugify(name2) || "usuario";
+  return [s1, s2].sort().join("--");
+}
+
+// ── Contratos (serviços contratados após pagamento) ────────
+export function getContracts() {
+  return readLS(LS_KEYS.contracts, []);
+}
+
+export function addContract(contract) {
+  const list = getContracts();
+  if (list.find((c) => c.chatId === contract.chatId)) return; // evita duplicata
+  writeLS(LS_KEYS.contracts, [{ ...contract, status: "active" }, ...list]);
+}
+
+export function closeContract(contractId) {
+  const list = getContracts().map((c) =>
+    c.id === contractId ? { ...c, status: "closed", closedAt: new Date().toISOString() } : c
+  );
+  writeLS(LS_KEYS.contracts, list);
+}
 
 export function readLS(key, fallback) {
   try {

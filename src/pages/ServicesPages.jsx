@@ -18,6 +18,62 @@ import { PromoCarousel } from "./HomePage";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 
+// =================== GEOCODING + HAVERSINE ===================
+
+// Cache em memória — evita reconsultar o mesmo endereço
+const _geoCache = new Map();
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function geocodeCity(locStr) {
+  if (_geoCache.has(locStr)) return _geoCache.get(locStr);
+  if (!locStr || locStr.toLowerCase() === "remoto") {
+    _geoCache.set(locStr, null);
+    return null;
+  }
+  const match = locStr.match(/^(.+?)\s*-\s*([A-Z]{2})$/);
+  const query = match ? `${match[1]}, ${match[2]}, Brasil` : `${locStr}, Brasil`;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
+      { headers: { "User-Agent": "Vinculum/1.0 (vinculum.netlify.app)" } }
+    );
+    const data = await res.json();
+    const coords = data[0] ? { lat: +data[0].lat, lng: +data[0].lon } : null;
+    _geoCache.set(locStr, coords);
+    return coords;
+  } catch {
+    _geoCache.set(locStr, null);
+    return null;
+  }
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=pt`,
+      { headers: { "User-Agent": "Vinculum/1.0 (vinculum.netlify.app)" } }
+    );
+    const data = await res.json();
+    const a = data.address ?? {};
+    return (
+      a.suburb || a.neighbourhood || a.city_district ||
+      a.town || a.city || a.county || "Sua localização"
+    );
+  } catch {
+    return "Sua localização";
+  }
+}
+
 // =================== FILTRO DE CATEGORIA ===================
 function CategoryFilter({ categories, active, onChange, queryText, onQueryChange }) {
   const [open, setOpen] = useState(false);
@@ -95,6 +151,67 @@ export function Services({ session }) {
     () => readLS(LS_KEYS.services, null) ?? seedServices
   );
 
+  // ── Filtro de localização ──────────────────────────────────
+  const [locActive, setLocActive]     = useState(false);
+  const [locLoading, setLocLoading]   = useState(false);
+  const [locMessage, setLocMessage]   = useState("");
+  const [userCoords, setUserCoords]   = useState(null);
+  const [userAddress, setUserAddress] = useState("");
+  const [radiusKm, setRadiusKm]       = useState(10);
+  const [includeRemote, setIncludeRemote] = useState(true);
+  const [svcCoords, setSvcCoords]     = useState({}); // id → {lat,lng}|null
+
+  const activateLocation = async () => {
+    if (!navigator.geolocation) {
+      alert("Seu navegador não suporta geolocalização.");
+      return;
+    }
+    setLocLoading(true);
+    setLocMessage("Obtendo sua localização…");
+    try {
+      const pos = await new Promise((ok, err) =>
+        navigator.geolocation.getCurrentPosition(ok, err, {
+          timeout: 10000,
+          enableHighAccuracy: false,
+        })
+      );
+      const { latitude: lat, longitude: lng } = pos.coords;
+      setUserCoords({ lat, lng });
+
+      setLocMessage("Identificando seu bairro…");
+      const addr = await reverseGeocode(lat, lng);
+      setUserAddress(addr);
+
+      setLocMessage("Calculando distâncias dos serviços…");
+      const nonRemote = services.filter(
+        (s) => s.location && s.location.toLowerCase() !== "remoto"
+      );
+      const coords = {};
+      for (const svc of nonRemote) {
+        coords[svc.id] = await geocodeCity(svc.location);
+        await new Promise((r) => setTimeout(r, 300)); // respeita limite do Nominatim
+      }
+      setSvcCoords(coords);
+      setLocActive(true);
+    } catch (err) {
+      if (err.code === 1) {
+        alert("Permissão de localização negada. Verifique as configurações do navegador.");
+      } else {
+        alert("Não foi possível obter sua localização. Tente novamente.");
+      }
+    } finally {
+      setLocLoading(false);
+      setLocMessage("");
+    }
+  };
+
+  const deactivateLocation = () => {
+    setLocActive(false);
+    setUserCoords(null);
+    setUserAddress("");
+    setSvcCoords({});
+  };
+
   // garante que todos os seeds estejam presentes e atualizados com category
   useEffect(() => {
     const current = readLS(LS_KEYS.services, null);
@@ -146,12 +263,20 @@ export function Services({ session }) {
   const filtered = useMemo(() => {
     let result = services;
 
-    // filtro por categoria
     if (activeCategory) {
       result = result.filter((s) => s.category === activeCategory);
     }
 
-    // filtro por texto
+    if (locActive && userCoords) {
+      result = result.filter((s) => {
+        const isRemote = s.remote || s.location?.toLowerCase() === "remoto";
+        if (isRemote) return includeRemote;
+        const coords = svcCoords[s.id];
+        if (!coords) return false;
+        return haversineKm(userCoords.lat, userCoords.lng, coords.lat, coords.lng) <= radiusKm;
+      });
+    }
+
     const q = queryText.trim().toLowerCase();
     if (q) {
       result = result.filter((s) =>
@@ -163,7 +288,20 @@ export function Services({ session }) {
     }
 
     return result;
-  }, [queryText, activeCategory, services]);
+  }, [queryText, activeCategory, services, locActive, userCoords, radiusKm, includeRemote, svcCoords]);
+
+  // Distâncias calculadas para exibir nos cards
+  const distanceMap = useMemo(() => {
+    if (!locActive || !userCoords) return {};
+    const map = {};
+    for (const s of services) {
+      const coords = svcCoords[s.id];
+      if (coords) {
+        map[s.id] = haversineKm(userCoords.lat, userCoords.lng, coords.lat, coords.lng);
+      }
+    }
+    return map;
+  }, [locActive, userCoords, svcCoords, services]);
 
   const isProvider = session?.role === "provider";
 
@@ -184,6 +322,64 @@ export function Services({ session }) {
         onQueryChange={(e) => setQueryText(e.target.value)}
       />
 
+      {/* ── Filtro de localização ── */}
+      {!locActive && (
+        <button
+          type="button"
+          onClick={activateLocation}
+          disabled={locLoading}
+          className="mb-4 flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+        >
+          <MapPin className="h-4 w-4 text-amber-600" />
+          {locLoading ? locMessage || "Aguarde…" : "Filtrar por distância"}
+        </button>
+      )}
+
+      {locActive && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+              <MapPin className="h-4 w-4 shrink-0" />
+              {userAddress}
+            </div>
+            <button
+              type="button"
+              onClick={deactivateLocation}
+              className="shrink-0 text-xs text-gray-400 hover:text-gray-600"
+            >
+              ✕ Desativar
+            </button>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-amber-700">Raio:</span>
+            {[5, 10, 20, 25].map((km) => (
+              <button
+                key={km}
+                type="button"
+                onClick={() => setRadiusKm(km)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  radiusKm === km
+                    ? "bg-amber-600 text-white shadow-sm"
+                    : "border border-amber-300 bg-white text-amber-700 hover:bg-amber-100"
+                }`}
+              >
+                {km} km
+              </button>
+            ))}
+          </div>
+
+          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-amber-700">
+            <input
+              type="checkbox"
+              checked={includeRemote}
+              onChange={(e) => setIncludeRemote(e.target.checked)}
+            />
+            Incluir serviços remotos
+          </label>
+        </div>
+      )}
+
       <PromoCarousel />
 
       {filtered.length === 0 ? (
@@ -203,6 +399,7 @@ export function Services({ session }) {
               canDelete={session?.email === s.ownerEmail}
               onDelete={() => handleDelete(s.id)}
               allowManage={true}
+              distanceKm={distanceMap[s.id] ?? null}
             />
           ))}
         </div>
@@ -226,6 +423,7 @@ export function ServiceCard({
   canDelete = false,
   onDelete = null,
   allowManage = false,
+  distanceKm = null,
 }) {
   const provider = getUserByEmail(service.ownerEmail);
   const isOwner = canDelete && session?.email === service.ownerEmail;
@@ -372,6 +570,15 @@ export function ServiceCard({
             </span>
           )}
 
+          {/* Distância (só aparece quando o filtro está ativo) */}
+          {distanceKm !== null && (
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-600">
+              {distanceKm < 1
+                ? `${Math.round(distanceKm * 1000)} m`
+                : `${distanceKm.toFixed(1)} km`}
+            </span>
+          )}
+
           {/* Avaliação */}
           <span className="ml-auto inline-flex items-center gap-1 text-amber-600">
             <Star className="h-4 w-4" />
@@ -386,7 +593,7 @@ export function ServiceCard({
         <div className="mt-4 grid gap-2">
           {session ? (
             <>
-              <Link to="/payment">
+              <Link to="/payment" state={{ service }}>
                 <Button className="w-full">Contratar</Button>
               </Link>
               <Link to="/contacts">
